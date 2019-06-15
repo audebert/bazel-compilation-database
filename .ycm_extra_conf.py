@@ -13,7 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Configuration file for YouCompleteMe to fetch C++ compilation flags from
 Bazel.
 
@@ -41,7 +40,8 @@ def bazel_info():
 
     bazel_info_dict = dict()
     try:
-        out = subprocess.check_output(['bazel', 'info']).decode('utf-8').strip().split('\n')
+        out = subprocess.check_output(['bazel', 'info'
+                                       ]).decode('utf-8').strip().split('\n')
     except subprocess.CalledProcessError as err:
         # This exit code is returned when this command is run outside of a bazel workspace.
         if err.returncode == 2:
@@ -53,6 +53,7 @@ def bazel_info():
 
     return bazel_info_dict
 
+
 def bazel_query(args):
     """Executes bazel query with the given args and returns the output."""
 
@@ -60,6 +61,7 @@ def bazel_query(args):
     query_cmd = ['bazel', 'query'] + args
     proc = subprocess.Popen(query_cmd, stdout=subprocess.PIPE)
     return proc.communicate()[0].decode('utf-8')
+
 
 def file_to_target(filepath):
     """Returns a string that works as a bazel target specification for the given file."""
@@ -72,7 +74,7 @@ def file_to_target(filepath):
     filepath = re.sub('external/[^/]*/', '', filepath)
 
     # Find out which package is the owner of this file.
-    query_result = bazel_query(['-k', repo_prefix+'...', '--output=package'])
+    query_result = bazel_query(['-k', repo_prefix + '...', '--output=package'])
     packages = [package.strip() for package in query_result.split('\n')]
 
     owner = ""
@@ -82,6 +84,7 @@ def file_to_target(filepath):
             owner = package
 
     return repo_prefix + owner + ":" + os.path.relpath(filepath, owner)
+
 
 def standardize_file_target(file_target):
     """For file targets that are not source files, return the target that generated them.
@@ -93,7 +96,9 @@ def standardize_file_target(file_target):
 
     query_result = bazel_query(['--output=xml', file_target])
     if not query_result:
-        sys.exit("Empty query response for {}. It is probably not handled by bazel".format(file_target))
+        sys.exit(
+            "Empty query response for {}. It is probably not handled by bazel".
+            format(file_target))
 
     target_xml = ElementTree.fromstringlist(query_result.split('\n'))
     source_element = target_xml.find('source-file')
@@ -104,7 +109,9 @@ def standardize_file_target(file_target):
     if generated_element is not None:
         return generated_element.get('generating-rule')
 
-    sys.exit("Error parsing query xml for " + file_target + ":\n" + query_result)
+    sys.exit("Error parsing query xml for " + file_target + ":\n" +
+             query_result)
+
 
 def get_aspects_filepath(label, bazel_bin):
     """Gets the file path for the generated aspects file that contains the
@@ -117,6 +124,7 @@ def get_aspects_filepath(label, bazel_bin):
     relative_file_path = target_path + '.compile_commands.json'
     return os.path.join(bazel_bin, *relative_file_path.split('/'))
 
+
 def get_compdb_json(aspects_filepath, bazel_exec_root):
     """Returns the JSON string read from the file after necessary processing."""
 
@@ -125,6 +133,7 @@ def get_compdb_json(aspects_filepath, bazel_exec_root):
         compdb_json_str += aspects_file.read()
     compdb_json_str += "\n]"
     return re.sub('__EXEC_ROOT__', bazel_exec_root, compdb_json_str)
+
 
 def get_flags(filepath, compdb_json_str):
     """Gets the compile command flags from the compile command for the file."""
@@ -138,7 +147,9 @@ def get_flags(filepath, compdb_json_str):
 
     # This could imply we are fetching the wrong compile_commands.json or there
     # is a bug in aspects.bzl.
-    sys.exit("File {f} not present in the compilation database".format(f=filepath))
+    sys.exit(
+        "File {f} not present in the compilation database".format(f=filepath))
+
 
 def standardize_flags(flags, bazel_workspace):
     """Modifies flags obtained from the compile command for compilation outside of bazel."""
@@ -148,6 +159,7 @@ def standardize_flags(flags, bazel_workspace):
     flags.extend(['-iquote', bazel_workspace])
 
     return flags
+
 
 #pylint: disable=W0613,C0103
 def FlagsForFile(filename, **kwargs):
@@ -163,8 +175,11 @@ def FlagsForFile(filename, **kwargs):
 
     os.chdir(bazel_workspace)
     # Valid prefixes for the file, in decreasing order of specificity.
-    file_prefix = [p for p in [bazel_genfiles, bazel_bin, bazel_exec_root, bazel_workspace]
-                   if filename.startswith(p)]
+    file_prefix = [
+        p
+        for p in [bazel_genfiles, bazel_bin, bazel_exec_root, bazel_workspace]
+        if filename.startswith(p)
+    ]
     if not file_prefix:
         sys.exit("Not a valid file: " + filename)
 
@@ -176,10 +191,14 @@ def FlagsForFile(filename, **kwargs):
         filepath = os.path.relpath(filename, bazel_exec_root)
 
     cc_rules = "cc_(library|binary|test|inc_library|proto_library)"
-    query_result = bazel_query([('kind("{cc_rules}", rdeps(siblings({f}), {f}, 1))'
-                                 .format(f=file_target, cc_rules=cc_rules)), '--keep_going'])
+    query_result = bazel_query([
+        ('kind("{cc_rules}", rdeps(siblings({f}), {f}, 1))'.format(
+            f=file_target, cc_rules=cc_rules)), '--keep_going'
+    ])
 
-    labels = [label.partition(" ")[0] for label in query_result.split('\n') if label]
+    labels = [
+        label.partition(" ")[0] for label in query_result.split('\n') if label
+    ]
 
     if not labels:
         sys.exit("No cc rules depend on this source file.")
@@ -196,7 +215,9 @@ def FlagsForFile(filename, **kwargs):
         repository_override,
         '--output_groups=compdb_files',
     ] + labels
-    proc = subprocess.Popen(bazel_aspects, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    proc = subprocess.Popen(bazel_aspects,
+                            stdout=subprocess.PIPE,
+                            stderr=subprocess.PIPE)
     out, err = proc.communicate()
     if proc.returncode != 0:
         errors = [e for e in out.splitlines() + err.splitlines()
@@ -209,12 +230,14 @@ def FlagsForFile(filename, **kwargs):
     aspects_filepath = get_aspects_filepath(labels[0], bazel_bin)
 
     compdb_json = get_compdb_json(aspects_filepath, bazel_exec_root)
-    flags = standardize_flags(get_flags(filepath, compdb_json), bazel_workspace)
+    flags = standardize_flags(get_flags(filepath, compdb_json),
+                              bazel_workspace)
 
     return {
         'flags': flags,
         'include_paths_relative_to_dir': bazel_exec_root,
-        }
+    }
+
 
 # For testing; needs exactly one argument as path of file.
 if __name__ == '__main__':
