@@ -220,10 +220,12 @@ def FlagsForFile(filename, **kwargs):
                             stderr=subprocess.PIPE)
     out, err = proc.communicate()
     if proc.returncode != 0:
-        errors = [e for e in out.splitlines() + err.splitlines()
-                  if e.startswith("ERROR:")]
+        errors = [
+            e for e in out.splitlines() + err.splitlines()
+            if e.startswith(b"ERROR:")
+        ]
         if errors:
-            raise Exception('/'.join(errors))
+            raise Exception(b'/'.join(errors))
         else:
             raise Exception(err)
 
