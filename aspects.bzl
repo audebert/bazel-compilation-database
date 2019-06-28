@@ -73,12 +73,12 @@ def _is_objcpp_target(srcs):
 def _sources(target, ctx):
     srcs = []
     if "srcs" in dir(ctx.rule.attr):
-        srcs += [f for src in ctx.rule.attr.srcs for f in src.files]
+        srcs += [f for src in ctx.rule.attr.srcs for f in src.files.to_list()]
     if "hdrs" in dir(ctx.rule.attr):
-        srcs += [f for src in ctx.rule.attr.hdrs for f in src.files]
+        srcs += [f for src in ctx.rule.attr.hdrs for f in src.files.to_list()]
 
     if ctx.rule.kind == "cc_proto_library":
-        srcs += [f for f in target.files if f.extension in ["h", "cc"]]
+        srcs += [f for f in target.files.to_list() if f.extension in ["h", "cc"]]
 
     return srcs
 
@@ -252,6 +252,7 @@ def _compilation_database_aspect_impl(target, ctx):
 
     cc_toolchain = find_cpp_toolchain(ctx)
     feature_configuration = cc_common.configure_features(
+        ctx = ctx,
         cc_toolchain = cc_toolchain,
         requested_features = ctx.features,
         unsupported_features = ctx.disabled_features,
@@ -320,6 +321,7 @@ compilation_database_aspect = aspect(
     },
     fragments = ["cpp", "objc", "apple"],
     required_aspect_providers = [CompilationAspect],
+    toolchains = ["@bazel_tools//tools/cpp:toolchain_type"],
     implementation = _compilation_database_aspect_impl,
 )
 
@@ -346,7 +348,7 @@ def _compilation_database_impl(ctx):
 
     compilation_db = depset(transitive = compilation_db)
 
-    content = "[\n" + _compilation_db_json(compilation_db) + "\n]\n"
+    content = "[\n" + _compilation_db_json(compilation_db.to_list()) + "\n]\n"
     content = content.replace("__EXEC_ROOT__", ctx.attr.exec_root)
     content = content.replace("-isysroot __BAZEL_XCODE_SDKROOT__", "")
     ctx.actions.write(output = ctx.outputs.filename, content = content)
